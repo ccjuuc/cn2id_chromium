@@ -64,10 +64,53 @@ fn visit_dirs(
     Ok(())
 }
 
+fn fingerprint(input: &str) -> i64 {
+    fn unsigned_fingerprint_impl(input: &str) -> u64 {
+        let digest = md5::compute(input);
+        let hex128 = format!("{:x}", digest);
+        let int64 = u64::from_str_radix(&hex128[..16], 16).unwrap();
+        int64
+    }
+
+    fn unsigned_fingerprint(input: &str) -> u64 {
+        unsigned_fingerprint_impl(input)
+    }
+
+    let fp = unsigned_fingerprint(input);
+    if fp & 0x8000000000000000 != 0 {
+        -((!fp + 1) as i64)
+    } else {
+        fp as i64
+    }
+}
+
+fn generate_message_id(message: &str, meaning: Option<&str>) -> String {
+    let mut fp = fingerprint(message);
+    if let Some(meaning) = meaning {
+        let fp2 = fingerprint(meaning);
+        if fp < 0 {
+            fp = fp2 + (fp << 1) + 1;
+        } else {
+            fp = fp2 + (fp << 1);
+        }
+    }
+    (fp & 0x7fffffffffffffff).to_string()
+}
+
+
+
 fn main() {
     let args = Args::parse();
     println!("{:?}", args);
-    
+
+    if args.make.is_some() {
+        let make = args.make.unwrap();
+        println!("{}",make);
+        let message_id = generate_message_id(&make, None);
+        println!("message_id: {}", message_id);
+        return;
+    }
+
     let search = args.search.unwrap();
 
     let mut ids = Vec::new();
